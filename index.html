@@ -153,6 +153,24 @@
     td.ro { background: #f4f8fb; font-size: 13.5px; font-weight: 600; padding: 11px 9px; }
     td.calc { background: #f7fbf8; font-size: 13.5px; font-weight: 700; color: var(--green); padding: 11px 9px; }
 
+    th.x, td.x { width: 58px; text-align: center; }
+    .xbtn {
+        width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+        border: 1.5px solid var(--border); background: var(--white); color: var(--red);
+        font-size: 17px; font-weight: 700; line-height: 1; font-family: inherit;
+    }
+    .xbtn:hover { border-color: var(--red); background: #fdf3f2; }
+    tr.dropped { opacity: .55; }
+    tr.dropped td.ro, tr.dropped td:nth-child(2) { text-decoration: line-through; }
+    tr.dropped .xbtn { color: var(--green); border-color: var(--green); background: #f2fbf6; }
+    .addbtn { width: 100%; margin-top: 12px; }
+    .tag {
+        display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .6px;
+        text-transform: uppercase; border-radius: 20px; padding: 2px 7px; margin-left: 6px;
+        background: var(--blue-lt); color: var(--blue);
+    }
+    .tag.new { background: #eaf7f0; color: var(--green); }
+
     /* ---------- gps ---------- */
     .gps { display: flex; align-items: center; gap: 12px; }
     .gps .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
@@ -236,6 +254,13 @@
 
         /* the row header already names the community, so drop the repeat */
         #allTable td.ro { display: none; }
+        #dpTable td.x { width: 100%; text-align: left; display: flex; align-items: center; gap: 12px; }
+        #dpTable td.x::before {
+            content: 'Use this round'; display: inline; margin: 0; white-space: nowrap;
+            font-size: 11px; font-weight: 700; letter-spacing: .6px;
+            text-transform: uppercase; color: var(--muted);
+        }
+        #dpTable .xbtn { width: 40px; height: 40px; font-size: 19px; }
 
         /* a read only list stays a proper table on a phone: two short columns fit */
         table.compact { display: table; min-width: 0; }
@@ -408,17 +433,18 @@
     <div class="step" data-step="3">
         <div class="card">
             <h2><span>Section 4.</span> Distribution points</h2>
-            <label class="f"><span>How many distribution points does the PHU want to use? <i>*</i></span>
-                <input type="number" id="dpCount" inputmode="numeric" min="1" max="60" placeholder="e.g. 5">
-            </label>
-            <p class="hint" id="dpHint" style="display:none">Fill every cell. The type is Fixed, Outreach or Mobile.</p>
-            <div class="tw" id="dpWrap" style="display:none">
+            <div id="dpBox"></div>
+            <p class="hint">The points used last time are listed. Press the cross to drop one the PHU is not using this round, and Add a distribution point for any new one. The type comes prefilled and can be changed.</p>
+            <div class="tw">
                 <table id="dpTable">
-                    <thead><tr><th class="n">#</th><th>Name of distribution point</th><th>Type</th></tr></thead>
+                    <thead><tr><th class="n">#</th><th>Distribution point</th><th>Type</th><th class="x">Use</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
+            <button type="button" class="btn alt addbtn" id="dpAdd">+ &nbsp;Add a distribution point</button>
+            <div id="dpTotal" class="kvline"></div>
         </div>
+
         <div class="card">
             <h2>Location</h2>
             <div class="gps" id="gpsBox">
@@ -714,6 +740,7 @@ var DP_TYPES = ['Fixed', 'Outreach', 'Mobile'];
 
 var TREE = {};
 var RECORD = {};            /* 'district|chiefdom|phu' -> [{community, pop2023}] */
+var RECDP  = {};            /* same key -> [{name, type}] from the micro plan */
 var state = {
     step: 0, otherStaff: '', confirm: '', gps: null,
     watched: false, firstTime: true, videoBroken: false, moreComm: '',
@@ -896,10 +923,12 @@ function buildTree(text) {
     var iT = pick(head, ['facility_type', 'type', 'phu_type']);
     var iN = pick(head, ['community', 'community_name', 'settlement']);
     var iPop = pick(head, ['population_2023', 'population', 'pop_2023', 'pop']);
+    var iDp = pick(head, ['dp_name', 'distribution_point', 'dp']);
+    var iDt = pick(head, ['dp_type', 'distribution_point_type', 'dp_category']);
     if (iD < 0 || iC < 0 || iP < 0) {
         throw new Error('needs district, chiefdom and phu columns, found: ' + head.join(', '));
     }
-    var tree = {}, rec = {}, count = 0, communities = 0;
+    var tree = {}, rec = {}, dps = {}, count = 0, communities = 0, points = 0;
     rows.slice(1).forEach(function (r) {
         var d = (r[iD] || '').trim(), c = (r[iC] || '').trim(), h = (r[iP] || '').trim();
         var t = iT > -1 ? (r[iT] || '').trim() : '';
@@ -910,12 +939,22 @@ function buildTree(text) {
         if (!tree[d][c].some(function (x) { return x[0] === h; })) { tree[d][c].push([h, t]); count++; }
 
         /* the same row may name a community for that PHU */
+        var k = commKey(d, c, h);
         var nm = iN > -1 ? (r[iN] || '').trim() : '';
         if (nm) {
-            var k = commKey(d, c, h);
             if (!rec[k]) rec[k] = [];
             rec[k].push({ community: nm, pop2023: iPop > -1 ? digits(r[iPop] || '') : '' });
             communities++;
+        }
+
+        /* the same rows name the distribution point each community sits under */
+        var dn = iDp > -1 ? (r[iDp] || '').trim() : '';
+        if (dn) {
+            if (!dps[k]) dps[k] = [];
+            if (!dps[k].some(function (x) { return x.name === dn; })) {
+                dps[k].push({ name: dn, type: iDt > -1 ? (r[iDt] || '').trim() : '' });
+                points++;
+            }
         }
     });
     Object.keys(tree).forEach(function (d) {
@@ -924,7 +963,10 @@ function buildTree(text) {
         });
     });
     if (!count) throw new Error('no facility rows found');
-    return { tree: tree, rec: rec, count: count, communities: communities };
+    Object.keys(dps).forEach(function (k) {
+        dps[k].sort(function (a, b) { return a.name.localeCompare(b.name); });
+    });
+    return { tree: tree, rec: rec, dps: dps, count: count, communities: communities, points: points };
 }
 
 function fillDistricts() {
@@ -938,9 +980,11 @@ function applyCsv(text, where) {
     var built = buildTree(text);
     TREE = built.tree;
     RECORD = built.rec;
+    RECDP = built.dps;
     fillDistricts();
     csvNote(built.count.toLocaleString() + ' facilities in ' + Object.keys(TREE).length
-        + ' districts and ' + built.communities.toLocaleString() + ' communities, read from ' + where + '.');
+        + ' districts, ' + built.communities.toLocaleString() + ' communities and '
+        + built.points.toLocaleString() + ' distribution points, read from ' + where + '.');
     try { localStorage.setItem(CSV_CACHE, text); } catch (e) {}
     syncNav();
 }
@@ -970,7 +1014,7 @@ function commKey(d, c, h) { return [d, c, h].join('|'); }
             if (cached) {
                 try {
                     var built = buildTree(cached);
-                    TREE = built.tree; RECORD = built.rec; fillDistricts();
+                    TREE = built.tree; RECORD = built.rec; RECDP = built.dps; fillDistricts();
                     csvNote(built.count.toLocaleString() + ' facilities and '
                         + built.communities.toLocaleString()
                         + ' communities loaded from the copy saved on this device. '
@@ -1008,6 +1052,7 @@ $('phu').addEventListener('change', function () {
     $('ftype').value = hit ? hit[1] : '';
     checkLock();
     loadRecordFor();
+    loadDpFor();
 });
 
 function phuKey() { return [$('district').value, $('chiefdom').value, $('phu').value].join(' | '); }
@@ -1258,51 +1303,125 @@ $('addCount').addEventListener('input', function () {
 });
 
 /* ================= distribution points ================= */
-function buildDpTable(n) {
-    var tb = $('dpTable').tBodies[0], old = readDp();
-    tb.innerHTML = '';
-    for (var i = 0; i < n; i++) {
-        var tr = document.createElement('tr'), prev = old[i] || { name: '', type: '' };
+function dpRecord() {
+    return RECDP[commKey($('district').value, $('chiefdom').value, $('phu').value)] || [];
+}
 
-        var num = document.createElement('td');
-        num.className = 'n';
-        num.innerHTML = '<span class="wide">' + (i + 1) + '</span><span class="narrow">Distribution point ' + (i + 1) + '</span>';
+function dpRow(name, type, source) {
+    var tb = $('dpTable').tBodies[0];
+    var tr = document.createElement('tr');
+    tr.dataset.source = source;
+    tr.dataset.dropped = '0';
 
-        var c1 = document.createElement('td');
-        c1.setAttribute('data-l', 'Name');
+    var num = document.createElement('td');
+    num.className = 'n';
+
+    var c1 = document.createElement('td');
+    c1.setAttribute('data-l', 'Distribution point');
+    if (source === 'record') {
+        c1.className = 'ro';
+        c1.innerHTML = name + '<span class="tag">on record</span>';
+        tr.dataset.name = name;
+    } else {
         var nameIn = document.createElement('input');
-        nameIn.type = 'text'; nameIn.placeholder = 'Distribution point name'; nameIn.className = 'd-name'; nameIn.value = prev.name;
-        nameIn.addEventListener('blur', function () { this.value = titleCase(this.value); syncNav(); });
+        nameIn.type = 'text'; nameIn.className = 'p-name';
+        nameIn.placeholder = 'Distribution point name'; nameIn.value = name || '';
+        nameIn.addEventListener('blur', function () { this.value = titleCase(this.value); dpTotals(); syncNav(); });
         nameIn.addEventListener('input', syncNav);
         c1.appendChild(nameIn);
-
-        var c2 = document.createElement('td');
-        c2.setAttribute('data-l', 'Type');
-        var tSel = document.createElement('select');
-        tSel.className = 'd-type';
-        tSel.add(new Option('Select', ''));
-        DP_TYPES.forEach(function (t) { tSel.add(new Option(t, t)); });
-        tSel.value = prev.type;
-        tSel.addEventListener('change', syncNav);
-        c2.appendChild(tSel);
-
-        tr.appendChild(num); tr.appendChild(c1); tr.appendChild(c2);
-        tb.appendChild(tr);
+        var tag = document.createElement('span');
+        tag.className = 'tag new';
+        tag.textContent = 'new';
+        c1.appendChild(tag);
     }
-    $('dpWrap').style.display = n > 0 ? 'block' : 'none';
-    $('dpHint').style.display = n > 0 ? 'block' : 'none';
+
+    var c2 = document.createElement('td');
+    c2.setAttribute('data-l', 'Type');
+    var sel = document.createElement('select');
+    sel.className = 'p-type';
+    sel.add(new Option('Select', ''));
+    DP_TYPES.forEach(function (t) { sel.add(new Option(t, t)); });
+    sel.value = DP_TYPES.indexOf(type) > -1 ? type : '';
+    sel.addEventListener('change', function () { dpTotals(); syncNav(); });
+    c2.appendChild(sel);
+
+    var c3 = document.createElement('td');
+    c3.className = 'x';
+    var x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'xbtn';
+    x.innerHTML = '&times;';
+    x.title = 'Not used this round';
+    x.addEventListener('click', function () {
+        if (source === 'added') { tr.remove(); renumberDp(); dpTotals(); syncNav(); return; }
+        var off = tr.dataset.dropped === '1';
+        tr.dataset.dropped = off ? '0' : '1';
+        tr.classList.toggle('dropped', !off);
+        x.innerHTML = off ? '&times;' : '&#8635;';
+        x.title = off ? 'Not used this round' : 'Put it back';
+        sel.disabled = !off;
+        dpTotals(); syncNav();
+    });
+    c3.appendChild(x);
+
+    tr.appendChild(num); tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(c3);
+    tb.appendChild(tr);
+    renumberDp();
+    return tr;
 }
-function readDp() {
-    return [].map.call($('dpTable').tBodies[0].rows, function (tr) {
-        return { name: tr.querySelector('.d-name').value.trim(), type: tr.querySelector('.d-type').value };
+
+function renumberDp() {
+    [].forEach.call($('dpTable').tBodies[0].rows, function (tr, i) {
+        var name = tr.dataset.source === 'record'
+            ? tr.dataset.name
+            : (tr.querySelector('.p-name') ? tr.querySelector('.p-name').value || 'New point' : 'New point');
+        tr.querySelector('td.n').innerHTML = '<span class="wide">' + (i + 1) + '</span>'
+            + '<span class="narrow">' + name + '</span>';
     });
 }
-$('dpCount').addEventListener('input', function () {
-    var n = parseInt(digits(this.value).slice(0, 2), 10);
-    this.value = isNaN(n) ? '' : n;
-    buildDpTable(isNaN(n) ? 0 : Math.min(n, 60));
-    syncNav();
+
+function loadDpFor() {
+    var tb = $('dpTable').tBodies[0];
+    tb.innerHTML = '';
+    var list = dpRecord();
+    list.forEach(function (d) { dpRow(d.name, d.type, 'record'); });
+    $('dpBox').innerHTML = list.length
+        ? '<div class="csv">' + list.length + ' distribution point'
+          + (list.length === 1 ? '' : 's') + ' used last time, taken from the district micro plan.</div>'
+        : ($('phu').value
+            ? '<div class="csv">No distribution points are on record for this PHU. Add the ones being used.</div>'
+            : '<div class="csv">Pick the PHU in Section 1 first.</div>');
+    dpTotals();
+}
+
+$('dpAdd').addEventListener('click', function () {
+    var tr = dpRow('', '', 'added');
+    var input = tr.querySelector('.p-name');
+    if (input) input.focus();
+    dpTotals(); syncNav();
 });
+
+function readDp() {
+    return [].map.call($('dpTable').tBodies[0].rows, function (tr) {
+        var rec = tr.dataset.source === 'record';
+        return {
+            name: rec ? tr.dataset.name : (tr.querySelector('.p-name').value.trim()),
+            type: tr.querySelector('.p-type').value,
+            source: tr.dataset.source,
+            used: tr.dataset.dropped !== '1'
+        };
+    });
+}
+
+function dpTotals() {
+    var all = readDp();
+    var used = all.filter(function (d) { return d.used; });
+    var dropped = all.length - used.length;
+    var added = used.filter(function (d) { return d.source === 'added'; }).length;
+    $('dpTotal').innerHTML = '<span>' + used.length + ' point' + (used.length === 1 ? '' : 's')
+        + ' this round</span><span>' + added + ' new'
+        + (dropped ? ', ' + dropped + ' dropped' : '') + '</span>';
+}
 
 /* ================= gps ================= */
 (function () {
@@ -1393,16 +1512,21 @@ function problems(step, paint) {
         });
     }
     if (step === 3) {
-        var dc = parseInt($('dpCount').value, 10);
-        if (!dc || dc < 1) out.push('Enter how many distribution points the PHU wants to use');
-        if (paint) mark($('dpCount'), !dc);
-        readDp().forEach(function (r, i) {
+        var pts = readDp(), used = pts.filter(function (d) { return d.used; });
+        if (!used.length) out.push('Keep at least one distribution point, or add one');
+        pts.forEach(function (r, i) {
             var tr = $('dpTable').tBodies[0].rows[i];
+            if (!r.used) {
+                mark(tr.querySelector('.p-name'), false);
+                mark(tr.querySelector('.p-type'), false);
+                return;
+            }
             var b1 = !r.name, b2 = !r.type;
-            if (b1 || b2) out.push('Distribution point row ' + (i + 1) + ' is incomplete');
+            if (b1) out.push('Distribution point ' + (i + 1) + ' needs a name');
+            if (b2) out.push((r.name || 'Distribution point ' + (i + 1)) + ' needs a type');
             if (paint) {
-                mark(tr.querySelector('.d-name'), b1);
-                mark(tr.querySelector('.d-type'), b2);
+                mark(tr.querySelector('.p-name'), b1);
+                mark(tr.querySelector('.p-type'), b2);
             }
         });
     }
@@ -1444,8 +1568,10 @@ function payload() {
         baseYear: BASE_YEAR,
         targetYear: TARGET_YEAR,
         communities: readAll(),
-        dpCount: parseInt($('dpCount').value, 10) || 0,
-        distributionPoints: readDp(),
+        dpOnRecord: dpRecord().length,
+        dpDropped: readDp().filter(function (d) { return !d.used; }).map(function (d) { return d.name; }),
+        dpCount: readDp().filter(function (d) { return d.used; }).length,
+        distributionPoints: readDp().filter(function (d) { return d.used; }),
         gps: state.gps,
         confirmed: state.confirm,
         submittedAt: new Date().toISOString()
@@ -1492,11 +1618,14 @@ function renderReview() {
     }
 
     h.push('<h3>Distribution points (' + p.distributionPoints.length + ')</h3>');
+    kv('On record from the micro plan', p.dpOnRecord);
+    if (p.dpDropped.length) kv('Dropped this round', p.dpDropped.join(', '));
     if (p.distributionPoints.length) {
         h.push('<div class="tw"><table><thead><tr><th class="n">#</th><th>Name</th><th>Type</th></tr></thead><tbody>');
         p.distributionPoints.forEach(function (d, i) {
-            h.push('<tr><td class="n"><span class="wide">' + (i + 1) + '</span><span class="narrow">Point ' + (i + 1) + '</span></td>'
-                + '<td data-l="Name">' + (d.name || '&mdash;') + '</td>'
+            h.push('<tr><td class="n"><span class="wide">' + (i + 1) + '</span><span class="narrow">'
+                + d.name + '</span></td>'
+                + '<td data-l="Name">' + (d.name || '&mdash;') + (d.source === 'added' ? ' (new)' : '') + '</td>'
                 + '<td data-l="Type">' + (d.type || '&mdash;') + '</td></tr>');
         });
         h.push('</tbody></table></div>');
@@ -1719,7 +1848,11 @@ function buildPdf(p) {
         + (p.growthRate * 100).toFixed(1) + '% a year)', true);
 
     section('Distribution points (' + p.distributionPoints.length + ')');
-    p.distributionPoints.forEach(function (dp, i) { line((i + 1) + '. ' + dp.name, dp.type); });
+    line('On record from the micro plan', String(p.dpOnRecord));
+    p.distributionPoints.forEach(function (dp, i) {
+        line((i + 1) + '. ' + dp.name + (dp.source === 'added' ? ' (new)' : ''), dp.type);
+    });
+    if (p.dpDropped.length) line('Dropped this round', p.dpDropped.join(', '));
 
     section('Location');
     line('GPS', p.gps ? (p.gps.latitude + ', ' + p.gps.longitude + ' (' + p.gps.accuracy + ' m accuracy)') : 'Not captured');
