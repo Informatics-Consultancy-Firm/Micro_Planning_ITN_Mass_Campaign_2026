@@ -103,15 +103,6 @@
     .btn.alt { background: var(--white); color: var(--navy); border-color: var(--border); }
     .btn:disabled { background: #a9bccb; border-color: #a9bccb; }
 
-    /* ---------- camera ---------- */
-    .cam { text-align: center; }
-    .cam video, .cam .shot {
-        width: 200px; height: 200px; border-radius: 50%; object-fit: cover;
-        background: #dbe6ef; border: 3px solid var(--border); display: block; margin: 0 auto 12px;
-    }
-    .cam .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-    .cam .note { font-size: 12px; color: var(--muted); margin-top: 10px; }
-
     /* ---------- video ---------- */
     .vid { background: #000; border-radius: 11px; overflow: hidden; }
     .vid video { width: 100%; display: block; background: #000; pointer-events: none; }
@@ -140,7 +131,6 @@
     .cert h3 { font-size: 19px; font-weight: 700; letter-spacing: .6px; margin: 6px 0 4px; }
     .cert .who { font-size: 24px; font-weight: 700; color: var(--blue); margin: 14px 0 4px; line-height: 1.2; }
     .cert .for { font-size: 13px; color: var(--muted); max-width: 420px; margin: 8px auto 0; }
-    .cert img.face { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 3px solid var(--gold); margin: 0 auto 10px; display: block; }
     .cert .meta { font-size: 11.5px; color: var(--muted); margin-top: 16px; font-family: 'Courier New', monospace; }
     .cert .marks { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; }
     .cert .marks img { height: 40px; }
@@ -157,6 +147,11 @@
     td input, td select { border: none; border-radius: 0; background: transparent; padding: 11px 9px; }
     td input:focus, td select:focus { box-shadow: inset 0 0 0 2px var(--blue); }
     td input.bad, td select.bad { background: #fdf3f2; }
+
+    .kvline { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 700; margin-top: 12px; padding-top: 10px; border-top: 2px solid var(--blue-lt); }
+    .kvline span:last-child { color: var(--blue); }
+    td.ro { background: #f4f8fb; font-size: 13.5px; font-weight: 600; padding: 11px 9px; }
+    td.calc { background: #f7fbf8; font-size: 13.5px; font-weight: 700; color: var(--green); padding: 11px 9px; }
 
     /* ---------- gps ---------- */
     .gps { display: flex; align-items: center; gap: 12px; }
@@ -238,9 +233,24 @@
         td.n .narrow { display: inline; }
         table td[data-l]::before { content: attr(data-l); display: block; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
         table td input, table td select { border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 11px; background: var(--white); }
+
+        /* the row header already names the community, so drop the repeat */
+        #allTable td.ro { display: none; }
+
+        /* a read only list stays a proper table on a phone: two short columns fit */
+        table.compact { display: table; min-width: 0; }
+        table.compact thead { display: table-header-group; }
+        table.compact tbody { display: table-row-group; }
+        table.compact tr { display: table-row; border: none; border-radius: 0; margin: 0; }
+        table.compact td { display: table-cell; border: 1px solid var(--border); padding: 8px 9px; font-size: 13px; }
+        table.compact td::before { content: none; }
+        table.compact th { padding: 8px 9px; font-size: 10.5px; }
+        table.compact td.n { width: 34px; background: var(--blue-lt); color: var(--navy); text-align: center; padding: 8px 4px; }
+        table.compact td.n .wide { display: inline; }
+        table.compact td.n .narrow { display: none; }
+        table.compact td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
         .rev table td { font-size: 14px; font-weight: 600; }
 
-        .cam video, .cam .shot { width: 168px; height: 168px; }
         .cert { padding: 18px 12px; }
         .cert .who { font-size: 20px; }
         #done h2 { font-size: 24px; }
@@ -278,16 +288,6 @@
             <label class="f"><span>Your name <i>*</i></span>
                 <input type="text" id="viewerName" autocomplete="off" placeholder="Full name">
             </label>
-            <div class="cam" id="camBox">
-                <video id="camView" autoplay muted playsinline></video>
-                <img class="shot" id="camShot" alt="" style="display:none">
-                <div class="row">
-                    <button type="button" class="btn" id="camStart">Turn on camera</button>
-                    <button type="button" class="btn" id="camTake" style="display:none">Take photo</button>
-                    <button type="button" class="btn alt" id="camRetake" style="display:none">Retake</button>
-                </div>
-                <div class="note" id="camNote">A photo of your face is taken for the certificate.</div>
-            </div>
         </div>
 
         <div class="card" id="videoCard">
@@ -360,17 +360,47 @@
     <!-- ============ step 2: communities ============ -->
     <div class="step" data-step="2">
         <div class="card">
-            <h2><span>Section 3.</span> Communities in the catchment</h2>
-            <label class="f"><span>How many communities are within your catchment population? <i>*</i></span>
-                <input type="number" id="commCount" inputmode="numeric" min="1" max="60" placeholder="e.g. 5">
-            </label>
-            <p class="hint" id="commHint" style="display:none">Fill every cell. Population is a maximum of five digits and the strongest network is one of Orange, Africell or Qcell.</p>
-            <div class="tw" id="commWrap" style="display:none">
-                <table id="commTable">
-                    <thead><tr><th class="n">#</th><th>Community</th><th>Catchment population</th><th>Strongest network</th></tr></thead>
+            <h2><span>Section 3.</span> Communities on record</h2>
+            <div id="recBox"></div>
+            <div class="tw" id="recWrap" style="display:none">
+                <table id="recTable" class="compact">
+                    <thead><tr><th class="n">#</th><th>Community</th><th>2023 population</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
+            <div id="recTotal" class="kvline" style="display:none"></div>
+        </div>
+
+        <div class="card">
+            <h2>Additional communities</h2>
+            <label class="f"><span>Are there additional communities to this PHU? <i>*</i></span></label>
+            <div class="yn" id="moreComm">
+                <button type="button" data-v="Yes" aria-pressed="false">Yes</button>
+                <button type="button" data-v="No" aria-pressed="false">No</button>
+            </div>
+            <div id="addWrap" style="display:none;margin-top:16px">
+                <label class="f"><span>How many additional communities? <i>*</i></span>
+                    <input type="number" id="addCount" inputmode="numeric" min="1" max="60" placeholder="e.g. 3">
+                </label>
+                <div class="tw" id="addTableWrap" style="display:none">
+                    <table id="addTable">
+                        <thead><tr><th class="n">#</th><th>New community</th><th>Current population</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="allCard" style="display:none">
+            <h2>All communities, population and network</h2>
+            <p class="hint">Every community for this PHU, the ones on record and any you added. The 2026 column is worked out for you at 2.5 per cent growth a year. Pick the strongest network in each community.</p>
+            <div class="tw">
+                <table id="allTable">
+                    <thead><tr><th class="n">#</th><th>Community</th><th>2023 population</th><th>Projected 2026</th><th>Strongest network</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="allTotal" class="kvline"></div>
         </div>
     </div>
 
@@ -671,7 +701,9 @@ var PDF = (function () {
 var ENDPOINT = '';                                  /* '' keeps everything on the device */
 var SUPPORT_PHONE = '+232 76 000 000';              /* SET THIS */
 var SUPPORT_NAME = 'NMCP Micro Planning help desk, ICF-SL';
-var CSV_URL = 'facilities.csv';
+var CSV_URL = 'facilities.csv';                     /* the only data file: cascade and communities */
+var GROWTH = 0.025;                                 /* population growth a year */
+var BASE_YEAR = 2023, TARGET_YEAR = 2026;
 var CSV_CACHE = 'mp_facilities_csv_v1';
 var VIDEO_KEY = 'mp_video_v1';
 var LOCKS = 'mp_locks_v1';
@@ -681,9 +713,10 @@ var NETWORKS = ['Orange', 'Africell', 'Qcell'];
 var DP_TYPES = ['Fixed', 'Outreach', 'Mobile'];
 
 var TREE = {};
+var RECORD = {};            /* 'district|chiefdom|phu' -> [{community, pop2023}] */
 var state = {
     step: 0, otherStaff: '', confirm: '', gps: null,
-    photo: '', watched: false, firstTime: true, videoBroken: false,
+    watched: false, firstTime: true, videoBroken: false, moreComm: '',
     maxSeen: 0, duration: 0, stream: null
 };
 
@@ -717,99 +750,19 @@ var seen = load(VIDEO_KEY, null);
 if (seen && seen.name) {
     state.firstTime = false;
     state.watched = true;
-    state.photo = seen.photo || '';
     $('viewerName').value = seen.name;
     $('seenBox').innerHTML = '<div class="csv">You watched this training on '
         + new Date(seen.at).toLocaleDateString('en-GB') + ', so you may go straight on with Next. '
         + 'You can watch it again if you want to.</div>';
-    if (state.photo) { $('camShot').src = state.photo; $('camShot').style.display = 'block'; $('camView').style.display = 'none'; $('camStart').style.display = 'none'; $('camRetake').style.display = 'inline-block'; }
     $('vMsg').className = 'vmsg ok';
     $('vMsg').textContent = 'Already watched in full';
     $('videoHint').textContent = 'You have watched this before. Watch again if you want to.';
 }
 
-/* --- camera --- */
-$('camStart').addEventListener('click', function () {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { camFallback('This device gives no camera access.'); return; }
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
-        .then(function (st) {
-            state.stream = st;
-            var v = $('camView');
-            v.srcObject = st; v.style.display = 'block';
-            $('camShot').style.display = 'none';
-            $('camStart').style.display = 'none';
-            $('camTake').style.display = 'inline-block';
-            $('camNote').textContent = 'Look at the camera and press Take photo.';
-        })
-        .catch(function (e) { camFallback('The camera could not be opened (' + (e.name || 'error') + ').'); });
-});
-
-function camFallback(msg) {
-    $('camNote').innerHTML = msg + ' Choose a photo instead.<br>'
-        + '<input type="file" id="camFile" accept="image/*" capture="user" style="margin-top:8px">';
-    $('camFile').addEventListener('change', function () {
-        var f = this.files[0]; if (!f) return;
-        var fr = new FileReader();
-        fr.onload = function () { squareUp(String(fr.result)); };
-        fr.readAsDataURL(f);
-    });
-}
-
-function squareUp(src) {
-    var img = new Image();
-    img.onload = function () {
-        var side = Math.min(img.width, img.height);
-        var c = document.createElement('canvas');
-        c.width = 480; c.height = 480;
-        c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 480, 480);
-        state.photo = c.toDataURL('image/jpeg', 0.82);
-        $('camShot').src = state.photo;
-        $('camShot').style.display = 'block';
-        $('camView').style.display = 'none';
-        $('camTake').style.display = 'none';
-        $('camStart').style.display = 'none';
-        $('camRetake').style.display = 'inline-block';
-        $('camNote').textContent = 'Photo taken.';
-        gateNote(); syncNav();
-    };
-    img.src = src;
-}
-
-$('camTake').addEventListener('click', function () {
-    var v = $('camView');
-    var side = Math.min(v.videoWidth || 480, v.videoHeight || 480);
-    var c = document.createElement('canvas');
-    c.width = 480; c.height = 480;
-    c.getContext('2d').drawImage(v, ((v.videoWidth || 480) - side) / 2, ((v.videoHeight || 480) - side) / 2,
-        side, side, 0, 0, 480, 480);
-    state.photo = c.toDataURL('image/jpeg', 0.82);
-    stopCam();
-    $('camShot').src = state.photo;
-    $('camShot').style.display = 'block';
-    $('camView').style.display = 'none';
-    $('camTake').style.display = 'none';
-    $('camRetake').style.display = 'inline-block';
-    $('camNote').textContent = 'Photo taken.';
-    gateNote(); syncNav();
-});
-
-$('camRetake').addEventListener('click', function () {
-    state.photo = '';
-    $('camShot').style.display = 'none';
-    $('camRetake').style.display = 'none';
-    $('camStart').style.display = 'inline-block';
-    $('camNote').textContent = 'A photo of your face is taken for the certificate.';
-    gateNote(); syncNav();
-});
-
-function stopCam() {
-    if (state.stream) { state.stream.getTracks().forEach(function (t) { t.stop(); }); state.stream = null; }
-}
-
 $('viewerName').addEventListener('blur', function () { this.value = titleCase(this.value); gateNote(); syncNav(); });
 $('viewerName').addEventListener('input', function () { gateNote(); syncNav(); });
 
-function readyToWatch() { return !!$('viewerName').value.trim() && !!state.photo; }
+function readyToWatch() { return !!$('viewerName').value.trim(); }
 
 function gateNote() {
     var ok = readyToWatch();
@@ -817,7 +770,7 @@ function gateNote() {
     if (state.firstTime) {
         $('videoHint').textContent = ok
             ? 'Watching is optional for now. It cannot be skipped forward, and finishing it earns a certificate.'
-            : 'Enter your name and take your photo, then the video can play. Watching is optional for now.';
+            : 'Enter your name, then the video can play. Watching is optional for now.';
     }
 }
 
@@ -868,7 +821,7 @@ function gateNote() {
         state.watched = true;
         $('vMsg').className = 'vmsg ok';
         $('vMsg').textContent = 'Watched in full';
-        var rec = { name: $('viewerName').value.trim(), photo: state.photo, at: new Date().toISOString() };
+        var rec = { name: $('viewerName').value.trim(), at: new Date().toISOString() };
         save(VIDEO_KEY, rec);
         seen = rec;
         renderVideoCert();
@@ -889,7 +842,7 @@ function gateNote() {
 
     $('vBtn').addEventListener('click', function () {
         if (state.firstTime && !readyToWatch()) {
-            $('errBox').innerHTML = '<div class="err">Enter your name and take your photo before the video starts.</div>';
+            $('errBox').innerHTML = '<div class="err">Enter your name before the video starts.</div>';
             return;
         }
         $('errBox').innerHTML = '';
@@ -904,7 +857,6 @@ function renderVideoCert() {
         '<div class="rule"></div>'
       + '<div class="k">National Malaria Control Programme &middot; Sierra Leone</div>'
       + '<h3>Certificate of Completion</h3>'
-      + (state.photo ? '<img class="face" src="' + state.photo + '" alt="">' : '')
       + '<div class="who">' + (name || 'Participant') + '</div>'
       + '<div class="for">has watched the Micro Planning training video in full and may proceed to complete the micro planning form.</div>'
       + '<div class="meta">' + when.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) + '</div>'
@@ -942,22 +894,39 @@ function buildTree(text) {
     var iC = pick(head, ['chiefdom', 'adm3', 'adm2']);
     var iP = pick(head, ['phu', 'hf', 'facility', 'facility_name']);
     var iT = pick(head, ['facility_type', 'type', 'phu_type']);
-    if (iD < 0 || iC < 0 || iP < 0) throw new Error('needs district, chiefdom and phu columns, found: ' + head.join(', '));
-    var tree = {}, count = 0;
+    var iN = pick(head, ['community', 'community_name', 'settlement']);
+    var iPop = pick(head, ['population_2023', 'population', 'pop_2023', 'pop']);
+    if (iD < 0 || iC < 0 || iP < 0) {
+        throw new Error('needs district, chiefdom and phu columns, found: ' + head.join(', '));
+    }
+    var tree = {}, rec = {}, count = 0, communities = 0;
     rows.slice(1).forEach(function (r) {
         var d = (r[iD] || '').trim(), c = (r[iC] || '').trim(), h = (r[iP] || '').trim();
         var t = iT > -1 ? (r[iT] || '').trim() : '';
         if (!d || !c || !h) return;
+
         if (!tree[d]) tree[d] = {};
         if (!tree[d][c]) tree[d][c] = [];
         if (!tree[d][c].some(function (x) { return x[0] === h; })) { tree[d][c].push([h, t]); count++; }
+
+        /* the same row may name a community for that PHU */
+        var nm = iN > -1 ? (r[iN] || '').trim() : '';
+        if (nm) {
+            var k = commKey(d, c, h);
+            if (!rec[k]) rec[k] = [];
+            rec[k].push({ community: nm, pop2023: iPop > -1 ? digits(r[iPop] || '') : '' });
+            communities++;
+        }
     });
     Object.keys(tree).forEach(function (d) {
-        Object.keys(tree[d]).forEach(function (c) { tree[d][c].sort(function (a, b) { return a[0].localeCompare(b[0]); }); });
+        Object.keys(tree[d]).forEach(function (c) {
+            tree[d][c].sort(function (a, b) { return a[0].localeCompare(b[0]); });
+        });
     });
     if (!count) throw new Error('no facility rows found');
-    return { tree: tree, count: count };
+    return { tree: tree, rec: rec, count: count, communities: communities };
 }
+
 function fillDistricts() {
     var dSel = $('district');
     dSel.innerHTML = '<option value="">Select district</option>';
@@ -968,9 +937,10 @@ function csvNote(html, bad) { $('csvBox').innerHTML = '<div class="csv' + (bad ?
 function applyCsv(text, where) {
     var built = buildTree(text);
     TREE = built.tree;
+    RECORD = built.rec;
     fillDistricts();
     csvNote(built.count.toLocaleString() + ' facilities in ' + Object.keys(TREE).length
-        + ' districts, read from ' + where + '.');
+        + ' districts and ' + built.communities.toLocaleString() + ' communities, read from ' + where + '.');
     try { localStorage.setItem(CSV_CACHE, text); } catch (e) {}
     syncNav();
 }
@@ -986,6 +956,8 @@ function offerPicker(msg) {
         fr.readAsText(f);
     });
 }
+function commKey(d, c, h) { return [d, c, h].join('|'); }
+
 (function loadFacilities() {
     $('district').disabled = true;
     csvNote('Reading ' + CSV_URL + '&hellip;');
@@ -998,8 +970,10 @@ function offerPicker(msg) {
             if (cached) {
                 try {
                     var built = buildTree(cached);
-                    TREE = built.tree; fillDistricts();
-                    csvNote(built.count.toLocaleString() + ' facilities loaded from the copy saved on this device. '
+                    TREE = built.tree; RECORD = built.rec; fillDistricts();
+                    csvNote(built.count.toLocaleString() + ' facilities and '
+                        + built.communities.toLocaleString()
+                        + ' communities loaded from the copy saved on this device. '
                         + CSV_URL + ' could not be read (' + err.message + ').');
                     return;
                 } catch (e) {}
@@ -1033,6 +1007,7 @@ $('phu').addEventListener('change', function () {
     var hit = list.filter(function (r) { return r[0] === v; })[0];
     $('ftype').value = hit ? hit[1] : '';
     checkLock();
+    loadRecordFor();
 });
 
 function phuKey() { return [$('district').value, $('chiefdom').value, $('phu').value].join(' | '); }
@@ -1079,65 +1054,206 @@ ynPair('confirm', function (v) {
     $(id).addEventListener('input', function () { this.value = phoneFmt(this.value); syncNav(); });
 });
 
-/* ================= community table ================= */
-function buildCommTable(n) {
-    var tb = $('commTable').tBodies[0], old = readComm();
+/* ================= communities ================= */
+function grow(pop) {
+    var n = parseInt(digits(String(pop)), 10);
+    if (!n) return '';
+    return Math.round(n * Math.pow(1 + GROWTH, TARGET_YEAR - BASE_YEAR));
+}
+
+function recordList() {
+    return RECORD[commKey($('district').value, $('chiefdom').value, $('phu').value)] || [];
+}
+
+function loadRecordFor() {
+    var list = recordList();
+    var tb = $('recTable').tBodies[0];
+    tb.innerHTML = '';
+    if (!list.length) {
+        $('recWrap').style.display = 'none';
+        $('recTotal').style.display = 'none';
+        $('recBox').innerHTML = $('phu').value
+            ? '<div class="csv">No communities are on record for this PHU yet. Add them below.</div>'
+            : '<div class="csv">Pick the PHU in Section 1 first.</div>';
+    } else {
+        list.forEach(function (c, i) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td class="n"><span class="wide">' + (i + 1) + '</span>'
+                + '<span class="narrow">Community ' + (i + 1) + '</span></td>'
+                + '<td class="ro" data-l="Community">' + c.community + '</td>'
+                + '<td class="ro" data-l="2023 population">' + (c.pop2023 ? withCommas(c.pop2023) : '-') + '</td>';
+            tb.appendChild(tr);
+        });
+        var tot = list.reduce(function (s, c) { return s + (parseInt(c.pop2023, 10) || 0); }, 0);
+        $('recWrap').style.display = 'block';
+        $('recTotal').style.display = 'flex';
+        $('recTotal').innerHTML = '<span>' + list.length + ' communities on record</span><span>'
+            + withCommas(String(tot)) + ' people in 2023</span>';
+        $('recBox').innerHTML = '<div class="csv">These come from the district micro plan. Check them, then say whether any are missing.</div>';
+    }
+    state.moreComm = '';
+    $('moreComm').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    $('addWrap').style.display = 'none';
+    $('addCount').value = '';
+    $('addTable').tBodies[0].innerHTML = '';
+    $('addTableWrap').style.display = 'none';
+    buildAllTable();
+}
+
+function buildAddTable(n) {
+    var tb = $('addTable').tBodies[0], old = readAdd();
     tb.innerHTML = '';
     for (var i = 0; i < n; i++) {
-        var tr = document.createElement('tr'), prev = old[i] || { community: '', population: '', network: '' };
+        var prev = old[i] || { community: '', pop2023: '' };
+        var tr = document.createElement('tr');
 
         var num = document.createElement('td');
         num.className = 'n';
-        num.innerHTML = '<span class="wide">' + (i + 1) + '</span><span class="narrow">Community ' + (i + 1) + '</span>';
+        num.innerHTML = '<span class="wide">' + (i + 1) + '</span><span class="narrow">New community ' + (i + 1) + '</span>';
 
         var c1 = document.createElement('td');
-        c1.setAttribute('data-l', 'Community');
+        c1.setAttribute('data-l', 'New community');
         var nameIn = document.createElement('input');
-        nameIn.type = 'text'; nameIn.placeholder = 'Community name'; nameIn.className = 'c-name'; nameIn.value = prev.community;
-        nameIn.addEventListener('blur', function () { this.value = titleCase(this.value); syncNav(); });
+        nameIn.type = 'text'; nameIn.className = 'a-name'; nameIn.placeholder = 'Community name'; nameIn.value = prev.community;
+        nameIn.addEventListener('blur', function () { this.value = titleCase(this.value); buildAllTable(); syncNav(); });
         nameIn.addEventListener('input', syncNav);
         c1.appendChild(nameIn);
 
         var c2 = document.createElement('td');
-        c2.setAttribute('data-l', 'Catchment population');
+        c2.setAttribute('data-l', 'Current population');
         var popIn = document.createElement('input');
-        popIn.type = 'text'; popIn.inputMode = 'numeric'; popIn.placeholder = 'e.g. 20,000'; popIn.className = 'c-pop'; popIn.value = prev.population;
+        popIn.type = 'text'; popIn.inputMode = 'numeric'; popIn.className = 'a-pop';
+        popIn.placeholder = 'e.g. 1,200'; popIn.value = prev.pop2023;
         popIn.addEventListener('input', function () {
             var d = digits(this.value).slice(0, 5);
             this.value = d ? withCommas(d) : '';
-            syncNav();
+            buildAllTable(); syncNav();
+        });
+        c2.appendChild(popIn);
+
+        tr.appendChild(num); tr.appendChild(c1); tr.appendChild(c2);
+        tb.appendChild(tr);
+    }
+    $('addTableWrap').style.display = n > 0 ? 'block' : 'none';
+    buildAllTable();
+}
+
+function readAdd() {
+    return [].map.call($('addTable').tBodies[0].rows, function (tr) {
+        return {
+            community: tr.querySelector('.a-name').value.trim(),
+            pop2023: tr.querySelector('.a-pop').value.trim()
+        };
+    });
+}
+
+/* the combined table: everything on record plus everything added */
+function buildAllTable() {
+    var kept = {};
+    [].forEach.call($('allTable').tBodies[0].rows, function (tr) {
+        kept[tr.dataset.key] = {
+            pop: tr.querySelector('.x-pop') ? tr.querySelector('.x-pop').value.trim() : '',
+            net: tr.querySelector('.x-net').value
+        };
+    });
+
+    var rows = recordList().map(function (c) {
+        return { community: c.community, pop2023: c.pop2023 ? withCommas(c.pop2023) : '', source: 'record' };
+    });
+    readAdd().forEach(function (a) {
+        if (a.community) rows.push({ community: a.community, pop2023: a.pop2023, source: 'added' });
+    });
+
+    var tb = $('allTable').tBodies[0];
+    tb.innerHTML = '';
+    rows.forEach(function (r, i) {
+        var key = r.source + '#' + i + '#' + r.community;
+        var prev = kept[key] || {};
+        var tr = document.createElement('tr');
+        tr.dataset.key = key;
+        tr.dataset.name = r.community;
+        tr.dataset.source = r.source;
+
+        var num = document.createElement('td');
+        num.className = 'n';
+        num.innerHTML = '<span class="wide">' + (i + 1) + '</span><span class="narrow">'
+            + r.community + (r.source === 'added' ? ' (added)' : '') + '</span>';
+
+        var c1 = document.createElement('td');
+        c1.className = 'ro';
+        c1.setAttribute('data-l', 'Community');
+        c1.textContent = r.community + (r.source === 'added' ? '  (added)' : '');
+
+        var c2 = document.createElement('td');
+        c2.setAttribute('data-l', BASE_YEAR + ' population');
+        var popIn = document.createElement('input');
+        popIn.type = 'text'; popIn.inputMode = 'numeric'; popIn.className = 'x-pop';
+        popIn.value = prev.pop !== undefined && prev.pop !== '' ? prev.pop : r.pop2023;
+        popIn.placeholder = 'population';
+        popIn.addEventListener('input', function () {
+            var d = digits(this.value).slice(0, 5);
+            this.value = d ? withCommas(d) : '';
+            tr.querySelector('.x-proj').textContent = d ? withCommas(String(grow(d))) : '-';
+            allTotals(); syncNav();
         });
         c2.appendChild(popIn);
 
         var c3 = document.createElement('td');
-        c3.setAttribute('data-l', 'Strongest network');
+        c3.className = 'calc x-proj';
+        c3.setAttribute('data-l', 'Projected ' + TARGET_YEAR);
+        c3.textContent = r.pop2023 || prev.pop ? withCommas(String(grow(prev.pop || r.pop2023))) : '-';
+
+        var c4 = document.createElement('td');
+        c4.setAttribute('data-l', 'Strongest network');
         var netSel = document.createElement('select');
-        netSel.className = 'c-net';
+        netSel.className = 'x-net';
         netSel.add(new Option('Select', ''));
         NETWORKS.forEach(function (nw) { netSel.add(new Option(nw, nw)); });
-        netSel.value = prev.network;
+        netSel.value = prev.net || '';
         netSel.addEventListener('change', syncNav);
-        c3.appendChild(netSel);
+        c4.appendChild(netSel);
 
-        tr.appendChild(num); tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(c3);
+        tr.appendChild(num); tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(c3); tr.appendChild(c4);
         tb.appendChild(tr);
-    }
-    $('commWrap').style.display = n > 0 ? 'block' : 'none';
-    $('commHint').style.display = n > 0 ? 'block' : 'none';
+    });
+
+    $('allCard').style.display = rows.length ? 'block' : 'none';
+    allTotals();
 }
-function readComm() {
-    return [].map.call($('commTable').tBodies[0].rows, function (tr) {
+
+function allTotals() {
+    var rows = readAll();
+    var t23 = rows.reduce(function (s, r) { return s + (parseInt(digits(r.population2023), 10) || 0); }, 0);
+    var t26 = rows.reduce(function (s, r) { return s + (parseInt(digits(String(r.population2026)), 10) || 0); }, 0);
+    $('allTotal').innerHTML = '<span>' + rows.length + ' communities</span><span>'
+        + withCommas(String(t23)) + ' in ' + BASE_YEAR + '  &rarr;  '
+        + withCommas(String(t26)) + ' in ' + TARGET_YEAR + '</span>';
+}
+
+function readAll() {
+    return [].map.call($('allTable').tBodies[0].rows, function (tr) {
+        var pop = tr.querySelector('.x-pop').value.trim();
         return {
-            community: tr.querySelector('.c-name').value.trim(),
-            population: tr.querySelector('.c-pop').value.trim(),
-            network: tr.querySelector('.c-net').value
+            community: tr.dataset.name,
+            source: tr.dataset.source,
+            population2023: pop,
+            population2026: pop ? grow(pop) : '',
+            network: tr.querySelector('.x-net').value
         };
     });
 }
-$('commCount').addEventListener('input', function () {
+
+ynPair('moreComm', function (v) {
+    state.moreComm = v;
+    $('addWrap').style.display = v === 'Yes' ? 'block' : 'none';
+    if (v === 'No') { $('addCount').value = ''; buildAddTable(0); }
+    syncNav();
+});
+
+$('addCount').addEventListener('input', function () {
     var n = parseInt(digits(this.value).slice(0, 2), 10);
     this.value = isNaN(n) ? '' : n;
-    buildCommTable(isNaN(n) ? 0 : Math.min(n, 60));
+    buildAddTable(isNaN(n) ? 0 : Math.min(n, 60));
     syncNav();
 });
 
@@ -1228,7 +1344,6 @@ function problems(step, paint) {
         var nm = $('viewerName');
         if (!nm.value.trim()) out.push('Your name is required');
         if (paint) mark(nm, !nm.value.trim());
-        if (!state.photo) out.push('Take your photo before going on');
     }
     if (step === 1) {
         [['district', 'District'], ['chiefdom', 'Chiefdom'], ['phu', 'PHU']].forEach(function (p) {
@@ -1250,17 +1365,30 @@ function problems(step, paint) {
         }
     }
     if (step === 2) {
-        var cc = parseInt($('commCount').value, 10);
-        if (!cc || cc < 1) out.push('Enter how many communities are in the catchment');
-        if (paint) mark($('commCount'), !cc);
-        readComm().forEach(function (r, i) {
-            var tr = $('commTable').tBodies[0].rows[i];
-            var b1 = !r.community, b2 = !r.population, b3 = !r.network;
-            if (b1 || b2 || b3) out.push('Community row ' + (i + 1) + ' is incomplete');
+        if (!state.moreComm) out.push('Answer whether there are additional communities to this PHU');
+        if (state.moreComm === 'Yes') {
+            var ac = parseInt($('addCount').value, 10);
+            if (!ac || ac < 1) out.push('Enter how many additional communities there are');
+            if (paint) mark($('addCount'), !ac);
+            readAdd().forEach(function (r, i) {
+                var tr = $('addTable').tBodies[0].rows[i];
+                var b1 = !r.community, b2 = !r.pop2023;
+                if (b1 || b2) out.push('New community row ' + (i + 1) + ' is incomplete');
+                if (paint) {
+                    mark(tr.querySelector('.a-name'), b1);
+                    mark(tr.querySelector('.a-pop'), b2);
+                }
+            });
+        }
+        var all = readAll();
+        if (!all.length) out.push('This PHU has no communities yet, add at least one');
+        all.forEach(function (r, i) {
+            var tr = $('allTable').tBodies[0].rows[i];
+            var b1 = !r.population2023, b2 = !r.network;
+            if (b1 || b2) out.push(r.community + ' needs a population and a network');
             if (paint) {
-                mark(tr.querySelector('.c-name'), b1);
-                mark(tr.querySelector('.c-pop'), b2);
-                mark(tr.querySelector('.c-net'), b3);
+                mark(tr.querySelector('.x-pop'), b1);
+                mark(tr.querySelector('.x-net'), b2);
             }
         });
     }
@@ -1308,8 +1436,14 @@ function payload() {
         otherStaff: state.otherStaff,
         altName: $('altName').value.trim(),
         altPhone: $('altPhone').value.trim(),
-        communityCount: parseInt($('commCount').value, 10) || 0,
-        communities: readComm(),
+        additionalCommunities: state.moreComm,
+        communityCount: readAll().length,
+        communitiesOnRecord: recordList().length,
+        communitiesAdded: readAll().filter(function (c) { return c.source === 'added'; }).length,
+        growthRate: GROWTH,
+        baseYear: BASE_YEAR,
+        targetYear: TARGET_YEAR,
+        communities: readAll(),
         dpCount: parseInt($('dpCount').value, 10) || 0,
         distributionPoints: readDp(),
         gps: state.gps,
@@ -1335,17 +1469,26 @@ function renderReview() {
     if (p.otherStaff === 'Yes') { kv('Alternate contact', p.altName); kv('Alternate telephone', p.altPhone); }
 
     h.push('<h3>Communities (' + p.communities.length + ')</h3>');
+    kv('On record from the micro plan', p.communitiesOnRecord);
+    kv('Added by the PHU', p.communitiesAdded);
     if (p.communities.length) {
-        h.push('<div class="tw"><table><thead><tr><th class="n">#</th><th>Community</th><th>Population</th><th>Network</th></tr></thead><tbody>');
+        h.push('<div class="tw"><table><thead><tr><th class="n">#</th><th>Community</th><th>'
+            + p.baseYear + '</th><th>' + p.targetYear + '</th><th>Network</th></tr></thead><tbody>');
         p.communities.forEach(function (c, i) {
-            h.push('<tr><td class="n"><span class="wide">' + (i + 1) + '</span><span class="narrow">Community ' + (i + 1) + '</span></td>'
-                + '<td data-l="Community">' + (c.community || '&mdash;') + '</td>'
-                + '<td data-l="Population">' + (c.population || '&mdash;') + '</td>'
+            h.push('<tr><td class="n"><span class="wide">' + (i + 1) + '</span><span class="narrow">'
+                + c.community + '</span></td>'
+                + '<td data-l="Community">' + c.community + (c.source === 'added' ? ' (added)' : '') + '</td>'
+                + '<td data-l="' + p.baseYear + '">' + (c.population2023 || '&mdash;') + '</td>'
+                + '<td data-l="' + p.targetYear + '">' + (c.population2026 ? withCommas(String(c.population2026)) : '&mdash;') + '</td>'
                 + '<td data-l="Network">' + (c.network || '&mdash;') + '</td></tr>');
         });
         h.push('</tbody></table></div>');
-        var tot = p.communities.reduce(function (s, c) { return s + (parseInt(digits(c.population), 10) || 0); }, 0);
-        h.push('<div class="kv" style="margin-top:8px"><span>Total catchment population</span><b>' + withCommas(String(tot)) + '</b></div>');
+        var t23 = p.communities.reduce(function (s, c) { return s + (parseInt(digits(c.population2023), 10) || 0); }, 0);
+        var t26 = p.communities.reduce(function (s, c) { return s + (parseInt(digits(String(c.population2026)), 10) || 0); }, 0);
+        h.push('<div class="kv" style="margin-top:8px"><span>Total population ' + p.baseYear
+            + '</span><b>' + withCommas(String(t23)) + '</b></div>');
+        h.push('<div class="kv"><span>Projected ' + p.targetYear + ' at '
+            + (p.growthRate * 100).toFixed(1) + '% a year</span><b>' + withCommas(String(t26)) + '</b></div>');
     }
 
     h.push('<h3>Distribution points (' + p.distributionPoints.length + ')</h3>');
@@ -1373,7 +1516,7 @@ function goto(step) {
         var s = +el.dataset.s;
         el.className = s === step ? 'on' : (s < step ? 'done' : '');
     });
-    if (step > 0) { stopCam(); try { $('vid').pause(); } catch (e) {} }
+    if (step > 0) { try { $('vid').pause(); } catch (e) {} }
     if (step === 4) renderReview();
     $('errBox').innerHTML = '';
     window.scrollTo(0, 0);
@@ -1419,7 +1562,6 @@ function submit() {
     }
 
     window.__submission = p;
-    stopCam();
     $('form').style.display = 'none';
     $('nav').style.display = 'none';
     $('steps').style.display = 'none';
@@ -1446,7 +1588,6 @@ function buildPdf(p) {
     var d = PDF.doc();
     var M = 48, W = PDF.W, right = W - M, navy = [0.12, 0.29, 0.42], gold = [1, 0.757, 0.027];
     var grey = [0.42, 0.48, 0.54], black = [0.1, 0.1, 0.1];
-    if (state.photo) d.setPhoto(state.photo, 480, 480);
 
     function head(title, sub) {
         d.rect(0, 0, W, 96, navy);
@@ -1504,7 +1645,6 @@ function buildPdf(p) {
     d.text(W / 2, y + 22, 'Micro Planning training video', { size: 11, align: 'center', rgb: grey });
     d.rect(W / 2 - 40, y + 36, 80, 3, gold);
     y += 80;
-    if (state.photo) { d.image(W / 2 - 55, y, 110, 110); y += 128; }
     d.text(W / 2, y, p.viewerName || 'Participant', { size: 20, bold: true, align: 'center', rgb: [0.17, 0.4, 0.58] });
     y += 32;
     PDF.wrap('has watched the Micro Planning training video in full and completed the micro planning form for '
@@ -1564,11 +1704,19 @@ function buildPdf(p) {
     }
 
     section('Communities (' + p.communities.length + ')');
+    line('On record from the micro plan', String(p.communitiesOnRecord));
+    line('Added by the PHU', String(p.communitiesAdded));
     p.communities.forEach(function (c, i) {
-        line((i + 1) + '. ' + c.community, c.population + '   |   ' + c.network);
+        line((i + 1) + '. ' + c.community + (c.source === 'added' ? ' (added)' : ''),
+            p.baseYear + ': ' + (c.population2023 || '-') + '   |   ' + p.targetYear + ': '
+            + (c.population2026 ? withCommas(String(c.population2026)) : '-')
+            + '   |   ' + (c.network || '-'));
     });
-    var tot = p.communities.reduce(function (s, c) { return s + (parseInt(digits(c.population), 10) || 0); }, 0);
-    line('Total catchment population', withCommas(String(tot)), true);
+    var t23 = p.communities.reduce(function (s, c) { return s + (parseInt(digits(c.population2023), 10) || 0); }, 0);
+    var t26 = p.communities.reduce(function (s, c) { return s + (parseInt(digits(String(c.population2026)), 10) || 0); }, 0);
+    line('Total population ' + p.baseYear, withCommas(String(t23)), true);
+    line('Projected ' + p.targetYear, withCommas(String(t26)) + '  (at '
+        + (p.growthRate * 100).toFixed(1) + '% a year)', true);
 
     section('Distribution points (' + p.distributionPoints.length + ')');
     p.distributionPoints.forEach(function (dp, i) { line((i + 1) + '. ' + dp.name, dp.type); });
