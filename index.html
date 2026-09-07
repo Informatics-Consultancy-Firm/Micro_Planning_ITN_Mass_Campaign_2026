@@ -320,7 +320,8 @@
     <div data-s="0" class="on">PHU</div>
     <div data-s="1">Communities</div>
     <div data-s="2">Points</div>
-    <div data-s="3">Review</div>
+    <div data-s="3">NTD</div>
+    <div data-s="4">Review</div>
 </div>
 
 <div class="wrap" id="form">
@@ -447,10 +448,20 @@
         </div>
     </div>
 
-    <!-- ============ step 4: review ============ -->
+    <!-- ============ step 3: NTD ============ -->
     <div class="step" data-step="3">
         <div class="card">
-            <h2><span>Section 5.</span> Review before you submit</h2>
+            <h2><span>Section 5.</span> Neglected tropical diseases</h2>
+            <p class="hint">What was entered for the malaria micro plan is carried over below and cannot be changed here. Read it, then answer the NTD questions that follow.</p>
+            <div class="rev" id="carry"></div>
+        </div>
+        <div id="ntdCards"></div>
+    </div>
+
+    <!-- ============ step 4: review ============ -->
+    <div class="step" data-step="4">
+        <div class="card">
+            <h2><span>Section 6.</span> Review before you submit</h2>
             <p class="hint">Read through everything. Go back and correct anything that is wrong.</p>
             <div class="rev" id="review"></div>
         </div>
@@ -497,6 +508,8 @@
 
     <div class="actions">
         <button type="button" class="btn" id="pdfBtn">Download my copy (PDF)</button>
+        <button type="button" class="btn alt" id="nmcpBtn">NMCP sheet (CSV)</button>
+        <button type="button" class="btn alt" id="ntdBtn">NTD sheet (CSV)</button>
     </div>
 
     <div class="card" style="margin-top:14px">
@@ -1505,7 +1518,7 @@ function dpTotals() {
         $('gpsBox').className = 'gps ok';
         $('gps1').textContent = 'Location captured';
         $('gps2').textContent = state.gps.latitude + ', ' + state.gps.longitude + '  (' + state.gps.accuracy + ' m)';
-        if (state.step === 3) renderReview();
+        if (state.step === 4) renderReview();
     }
     function bad(e) {
         if (state.gps) return;
@@ -1517,6 +1530,267 @@ function dpTotals() {
     var id = navigator.geolocation.watchPosition(ok, function () {}, { enableHighAccuracy: true, maximumAge: 0 });
     setTimeout(function () { navigator.geolocation.clearWatch(id); }, 180000);
 })();
+
+
+/* ================= NTD section ================= */
+/* Straight from the NTD checklist. num is a count, yn is yes or no,
+   names builds one row per unit counted in the field it points at. */
+var NTD_SPEC = [
+    { group: 'Logistics', note: 'Stocks of forms and tools at the PHU.', items: [
+        { id: 'tally_ov', label: 'Tally sheets OV available', type: 'num' },
+        { id: 'tally_sth', label: 'Tally sheets STH available', type: 'num' },
+        { id: 'summary_ov', label: 'PHU summary OV available', type: 'num' },
+        { id: 'summary_sth', label: 'PHU summary STH available', type: 'num' },
+        { id: 'ct_registers', label: 'Community treatment registers available', type: 'num' },
+        { id: 'sae_forms', label: 'SAE forms available', type: 'num' },
+        { id: 'ct_summary', label: 'Community treatment summary forms available', type: 'num' },
+        { id: 'dose_wooden', label: 'Dose poles, wooden, available', type: 'num' },
+        { id: 'dose_vinyl', label: 'Dose poles, vinyl, available', type: 'num' }
+    ]},
+    { group: 'Social mobilisation', note: 'Places and means of reaching the catchment.', items: [
+        { id: 'primary_schools', label: 'Primary schools in your catchment', type: 'num' },
+        { id: 'primary_names', label: 'Name each primary school', type: 'names', from: 'primary_schools', unit: 'Primary school' },
+        { id: 'secondary_schools', label: 'Secondary schools in your catchment', type: 'num' },
+        { id: 'secondary_names', label: 'Name each secondary school', type: 'names', from: 'secondary_schools', unit: 'Secondary school' },
+        { id: 'churches', label: 'Churches in your catchment', type: 'num' },
+        { id: 'mosques', label: 'Mosques in your catchment', type: 'num' },
+        { id: 'barrays', label: 'Community barrays in your catchment', type: 'num' },
+        { id: 'town_criers', label: 'Town criers in your catchment', type: 'num' },
+        { id: 'megaphones', label: 'Megaphones in your catchment', type: 'num' }
+    ]},
+    { group: 'Drugs', note: '', items: [
+        { id: 'ivm', label: 'Are IVM available?', type: 'yn' },
+        { id: 'alb', label: 'Are ALB available?', type: 'yn' }
+    ]},
+    { group: 'Human resources', note: 'The in-charge is carried over from Section 2.', items: [
+        { id: 'incharge_carry', label: 'Name of PHU in-charge', type: 'carry' },
+        { id: 'cdd_total', label: 'CDDs assigned to the PHU', type: 'num' },
+        { id: 'cdd_male', label: 'Male CDDs', type: 'num' },
+        { id: 'cdd_female', label: 'Female CDDs', type: 'num' }
+    ]},
+    { group: 'MMDP, LF and Oncho', note: '', items: [
+        { id: 'hydrocele', label: 'Hydrocele patients', type: 'num' },
+        { id: 'lymphedema', label: 'Lymphedema patients', type: 'num' },
+        { id: 'lymph_managed', label: 'Patients on lymphedema management', type: 'num' },
+        { id: 'staff_trained', label: 'Health facility staff trained in managing lymphedema', type: 'num' }
+    ]},
+    { group: 'SAE', note: '', items: [
+        { id: 'sae_drugs', label: 'Is SAE management drugs available?', type: 'yn' },
+        { id: 'panadol', label: 'Is Panadol available?', type: 'yn' },
+        { id: 'piriton', label: 'Is Piriton available?', type: 'yn' },
+        { id: 'ors', label: 'Is ORS available?', type: 'yn' }
+    ]}
+];
+
+var ntd = {};                 /* id -> value, and id -> [names] for the name lists */
+
+function buildNtd() {
+    var box = $('ntdCards');
+    box.innerHTML = '';
+    NTD_SPEC.forEach(function (grp) {
+        var card = document.createElement('div');
+        card.className = 'card';
+        var h = document.createElement('h2');
+        h.textContent = grp.group;
+        card.appendChild(h);
+        if (grp.note) {
+            var n = document.createElement('p');
+            n.className = 'hint';
+            n.textContent = grp.note;
+            card.appendChild(n);
+        }
+        grp.items.forEach(function (it) { card.appendChild(ntdField(it)); });
+        box.appendChild(card);
+    });
+    paintCarry();
+}
+
+function ntdField(it) {
+    var wrap = document.createElement('div');
+
+    if (it.type === 'carry') {
+        var lc = document.createElement('label');
+        lc.className = 'f';
+        lc.innerHTML = '<span>' + it.label + '</span>';
+        var ic = document.createElement('input');
+        ic.type = 'text'; ic.readOnly = true; ic.disabled = true;
+        ic.id = 'ntd_' + it.id;
+        ic.className = 'ntd-carry';
+        lc.appendChild(ic);
+        wrap.appendChild(lc);
+        return wrap;
+    }
+
+    if (it.type === 'names') {
+        wrap.id = 'ntdnames_' + it.id;
+        wrap.style.display = 'none';
+        var lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:13px;font-weight:600;margin:0 0 8px';
+        lbl.textContent = it.label;
+        wrap.appendChild(lbl);
+        var tw = document.createElement('div');
+        tw.className = 'tw';
+        var t = document.createElement('table');
+        t.id = 'ntdtbl_' + it.id;
+        t.innerHTML = '<thead><tr><th class="n">#</th><th>' + it.unit + ' name</th></tr></thead><tbody></tbody>';
+        tw.appendChild(t);
+        wrap.appendChild(tw);
+        return wrap;
+    }
+
+    var l = document.createElement('label');
+    l.className = 'f';
+    l.innerHTML = '<span>' + it.label + ' <i>*</i></span>';
+
+    if (it.type === 'yn') {
+        var yn = document.createElement('div');
+        yn.className = 'yn';
+        yn.id = 'ntd_' + it.id;
+        ['Yes', 'No'].forEach(function (v) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.dataset.v = v;
+            b.setAttribute('aria-pressed', 'false');
+            b.textContent = v;
+            b.addEventListener('click', function () {
+                yn.querySelectorAll('button').forEach(function (x) {
+                    x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+                });
+                ntd[it.id] = v;
+                syncNav();
+            });
+            yn.appendChild(b);
+        });
+        wrap.appendChild(l);
+        wrap.appendChild(yn);
+        return wrap;
+    }
+
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.inputMode = 'numeric';
+    inp.id = 'ntd_' + it.id;
+    inp.placeholder = '0';
+    inp.addEventListener('input', function () {
+        var d = digits(this.value).slice(0, 5);
+        this.value = d ? withCommas(d) : '';
+        ntd[it.id] = d;
+        NTD_SPEC.forEach(function (g) {
+            g.items.forEach(function (x) {
+                if (x.type === 'names' && x.from === it.id) buildNames(x, parseInt(d, 10) || 0);
+            });
+        });
+        syncNav();
+    });
+    l.appendChild(inp);
+    wrap.appendChild(l);
+    return wrap;
+}
+
+function buildNames(it, n) {
+    var host = $('ntdnames_' + it.id);
+    var tb = $('ntdtbl_' + it.id).tBodies[0];
+    var old = readNames(it.id);
+    tb.innerHTML = '';
+    for (var i = 0; i < Math.min(n, 60); i++) {
+        var tr = document.createElement('tr');
+        var num = document.createElement('td');
+        num.className = 'n';
+        num.innerHTML = '<span class="wide">' + (i + 1) + '</span><span class="narrow">'
+            + it.unit + ' ' + (i + 1) + '</span>';
+        var td = document.createElement('td');
+        td.setAttribute('data-l', it.unit + ' name');
+        var inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'nm';
+        inp.placeholder = it.unit + ' name';
+        inp.value = old[i] || '';
+        inp.addEventListener('blur', function () { this.value = titleCase(this.value); syncNav(); });
+        inp.addEventListener('input', syncNav);
+        td.appendChild(inp);
+        tr.appendChild(num); tr.appendChild(td);
+        tb.appendChild(tr);
+    }
+    host.style.display = n > 0 ? 'block' : 'none';
+}
+
+function readNames(id) {
+    var t = $('ntdtbl_' + id);
+    if (!t) return [];
+    return [].map.call(t.tBodies[0].rows, function (tr) { return tr.querySelector('.nm').value.trim(); });
+}
+
+/* what the malaria sections already recorded, shown read only */
+function paintCarry() {
+    var p = payload(false);
+    var t23 = p.communities.reduce(function (s, c) { return s + (parseInt(digits(c.population2023), 10) || 0); }, 0);
+    var t26 = p.communities.reduce(function (s, c) { return s + (parseInt(digits(String(c.population2026)), 10) || 0); }, 0);
+    var h = [];
+    function kv(k, v) { h.push('<div class="kv"><span>' + k + '</span><b>' + (v || '&mdash;') + '</b></div>'); }
+    kv('District', p.district);
+    kv('Chiefdom', p.chiefdom);
+    kv('PHU', p.phu);
+    kv('Facility type', p.facilityType);
+    kv('In-charge', p.inchargeName);
+    kv('In-charge telephone', p.inchargePhone);
+    kv('Communities', p.communities.length);
+    kv('Population ' + BASE_YEAR, withCommas(String(t23)));
+    kv('Population ' + TARGET_YEAR, withCommas(String(t26)));
+    kv('Distribution points', p.distributionPoints.length);
+    $('carry').innerHTML = h.join('');
+    var ic = $('ntd_incharge_carry');
+    if (ic) ic.value = p.inchargeName;
+}
+
+function readNtd() {
+    var out = {};
+    NTD_SPEC.forEach(function (g) {
+        g.items.forEach(function (it) {
+            if (it.type === 'names') { out[it.id] = readNames(it.id); return; }
+            if (it.type === 'carry') { out[it.id] = $('icName').value.trim(); return; }
+            out[it.id] = ntd[it.id] === undefined ? '' : ntd[it.id];
+        });
+    });
+    return out;
+}
+
+function ntdProblems(paint) {
+    var out = [], v = readNtd();
+    NTD_SPEC.forEach(function (g) {
+        g.items.forEach(function (it) {
+            if (it.type === 'carry') return;
+            if (it.type === 'names') {
+                var want = parseInt(digits(String(v[it.from] || '')), 10) || 0;
+                var got = v[it.id].filter(function (x) { return x; }).length;
+                if (want && got < Math.min(want, 60)) {
+                    out.push(it.label.replace('Name each', 'Name every') + ', ' + got + ' of ' + want + ' given');
+                    if (paint) {
+                        [].forEach.call($('ntdtbl_' + it.id).tBodies[0].rows, function (tr) {
+                            mark(tr.querySelector('.nm'), !tr.querySelector('.nm').value.trim());
+                        });
+                    }
+                }
+                return;
+            }
+            if (v[it.id] === '' || v[it.id] === undefined) {
+                out.push(it.label + ' is required');
+                if (paint) {
+                    var el = $('ntd_' + it.id);
+                    if (el && el.tagName === 'INPUT') mark(el, true);
+                }
+                return;
+            }
+            if (it.type === 'num' && paint) mark($('ntd_' + it.id), false);
+        });
+    });
+    var tot = parseInt(digits(String(v.cdd_total || '')), 10) || 0;
+    var m = parseInt(digits(String(v.cdd_male || '')), 10) || 0;
+    var f = parseInt(digits(String(v.cdd_female || '')), 10) || 0;
+    if (tot && (m + f) !== tot) {
+        out.push('Male and female CDDs come to ' + (m + f) + ', which does not match the ' + tot + ' assigned');
+    }
+    return out;
+}
 
 /* ================= validation ================= */
 function mark(el, bad) { if (el) el.classList.toggle('bad', !!bad); }
@@ -1598,13 +1872,16 @@ function problems(step, paint) {
         });
     }
     if (step === 3) {
+        out = out.concat(ntdProblems(paint));
+    }
+    if (step === 4) {
         if (state.confirm !== 'Yes') out.push('Confirm that you have reviewed everything');
     }
     return out;
 }
 
 function syncNav() {
-    var last = state.step === 3;
+    var last = state.step === 4;
     var clean = problems(state.step, false).length === 0;
     $('nextBtn').textContent = last ? 'Submit' : 'Next';
     $('nextBtn').className = last ? 'go' : 'primary';
@@ -1613,8 +1890,8 @@ function syncNav() {
 }
 
 /* ================= review ================= */
-function payload() {
-    return {
+function payload(withNtd) {
+    var base = {
         district: $('district').value,
         chiefdom: $('chiefdom').value,
         phu: $('phu').value,
@@ -1642,6 +1919,8 @@ function payload() {
         confirmed: state.confirm,
         submittedAt: new Date().toISOString()
     };
+    if (withNtd !== false) base.ntd = readNtd();
+    return base;
 }
 
 function renderReview() {
@@ -1694,6 +1973,20 @@ function renderReview() {
         h.push('</tbody></table></div>');
     }
 
+    h.push('<h3>NTD checklist</h3>');
+    NTD_SPEC.forEach(function (g) {
+        g.items.forEach(function (it) {
+            var v = p.ntd[it.id];
+            if (it.type === 'names') {
+                if (v && v.filter(function (x) { return x; }).length) {
+                    kv(it.label.replace('Name each', ''), v.filter(function (x) { return x; }).join(', '));
+                }
+                return;
+            }
+            kv(it.label, it.type === 'num' && v ? withCommas(String(v)) : v);
+        });
+    });
+
     h.push('<h3>Facility code</h3>');
     kv('Code for this PHU', p.facilityCode);
 
@@ -1712,7 +2005,8 @@ function goto(step) {
         var s = +el.dataset.s;
         el.className = s === step ? 'on' : (s < step ? 'done' : '');
     });
-    if (step === 3) renderReview();
+    if (step === 3) paintCarry();
+    if (step === 4) renderReview();
     $('errBox').innerHTML = '';
     window.scrollTo(0, 0);
     syncNav();
@@ -1727,7 +2021,7 @@ $('nextBtn').addEventListener('click', function () {
         else $('errBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
-    if (state.step < 3) { goto(state.step + 1); return; }
+    if (state.step < 4) { goto(state.step + 1); return; }
     submit();
 });
 
@@ -1929,6 +2223,20 @@ function buildPdf(p) {
     });
     if (p.dpDropped.length) line('Dropped this round', p.dpDropped.join(', '));
 
+    section('NTD checklist');
+    NTD_SPEC.forEach(function (g) {
+        line(g.group.toUpperCase(), '', true);
+        g.items.forEach(function (it) {
+            var v = p.ntd[it.id];
+            if (it.type === 'names') {
+                var list = (v || []).filter(function (x) { return x; });
+                if (list.length) line(it.label.replace('Name each ', ''), list.join(', '));
+                return;
+            }
+            line(it.label, it.type === 'num' && v ? withCommas(String(v)) : v);
+        });
+    });
+
     section('Location');
     line('GPS', p.gps ? (p.gps.latitude + ', ' + p.gps.longitude + ' (' + p.gps.accuracy + ' m accuracy)') : 'Not captured');
 
@@ -1939,6 +2247,73 @@ function buildPdf(p) {
 
     return d.build();
 }
+
+/* ================= the two sheets ================= */
+function csvCell(v) {
+    var s = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function csvFile(name, head, rows) {
+    var text = [head].concat(rows).map(function (r) {
+        return r.map(csvCell).join(',');
+    }).join('\r\n');
+    var blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
+/* the NMCP sheet: one row per community, with the PHU details repeated,
+   which is the shape the micro plan itself uses */
+function nmcpSheet(p) {
+    var head = ['facility_code', 'district', 'chiefdom', 'phu', 'facility_type',
+        'incharge_name', 'incharge_phone', 'other_staff', 'alternate_name', 'alternate_phone',
+        'community', 'community_source', 'population_' + p.baseYear, 'population_' + p.targetYear,
+        'projected', 'strongest_network', 'communities_removed', 'distribution_points',
+        'gps_latitude', 'gps_longitude', 'gps_accuracy_m', 'submitted_at'];
+    var rows = p.communities.map(function (c) {
+        return [p.facilityCode, p.district, p.chiefdom, p.phu, p.facilityType,
+            p.inchargeName, p.inchargePhone, p.otherStaff, p.altName, p.altPhone,
+            c.community, c.source, digits(c.population2023), c.population2026,
+            c.projected ? 'yes' : 'no', c.network, p.communitiesRemoved.join('; '),
+            p.distributionPoints.map(function (d) { return d.name + ' (' + d.type + ')'; }).join('; '),
+            p.gps ? p.gps.latitude : '', p.gps ? p.gps.longitude : '', p.gps ? p.gps.accuracy : '',
+            p.submittedAt];
+    });
+    csvFile('NMCP_' + p.facilityCode + '.csv', head, rows);
+}
+
+/* the NTD sheet: one row for the PHU, one column per question */
+function ntdSheet(p) {
+    var head = ['facility_code', 'district', 'chiefdom', 'phu', 'facility_type',
+        'incharge_name', 'incharge_phone', 'communities', 'population_' + p.targetYear,
+        'distribution_points'];
+    var t26 = p.communities.reduce(function (s, c) {
+        return s + (parseInt(digits(String(c.population2026)), 10) || 0);
+    }, 0);
+    var row = [p.facilityCode, p.district, p.chiefdom, p.phu, p.facilityType,
+        p.inchargeName, p.inchargePhone, p.communities.length, t26, p.distributionPoints.length];
+    NTD_SPEC.forEach(function (g) {
+        g.items.forEach(function (it) {
+            head.push(it.id);
+            var v = p.ntd[it.id];
+            row.push(it.type === 'names' ? (v || []).filter(function (x) { return x; }).join('; ') : v);
+        });
+    });
+    head.push('submitted_at');
+    row.push(p.submittedAt);
+    csvFile('NTD_' + p.facilityCode + '.csv', head, [row]);
+}
+
+$('nmcpBtn').addEventListener('click', function () {
+    if (window.__submission) nmcpSheet(window.__submission);
+});
+$('ntdBtn').addEventListener('click', function () {
+    if (window.__submission) ntdSheet(window.__submission);
+});
 
 $('pdfBtn').addEventListener('click', function () {
     var p = window.__submission;
@@ -1957,6 +2332,7 @@ $('pdfBtn').addEventListener('click', function () {
     }
 });
 
+buildNtd();
 syncNav();
 </script>
 </body>
